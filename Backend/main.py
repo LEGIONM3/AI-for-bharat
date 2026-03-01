@@ -47,6 +47,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️  S3 initialization skipped: {e}")
 
+    # Seed preset learning plans
+    try:
+        from data.seed_plans import seed_preset_plans
+        count = seed_preset_plans()
+        logger.info(f"✅ Preset plans seeded: {count} new plans")
+    except Exception as e:
+        logger.warning(f"⚠️  Plan seeding skipped: {e}")
+
     # 3. Verify Git is available (required for repo cloning)
     try:
         import subprocess
@@ -70,6 +78,14 @@ async def lifespan(app: FastAPI):
         )
     except Exception as e:
         logger.warning(f"⚠️  Git check failed: {e}")
+
+    # 4. Pre-load Whisper model (downloads ~150MB once, then cached locally)
+    try:
+        from services.whisper_transcriber import get_whisper_model
+        get_whisper_model()
+        logger.info("✅ Whisper model loaded OK")
+    except Exception as e:
+        logger.warning(f"⚠️  Whisper pre-load skipped: {e}")
 
     logger.info(f"✅ Backend ready on port {settings.APP_PORT}")
     logger.info(f"📖 API Docs: http://localhost:{settings.APP_PORT}/docs")
@@ -126,6 +142,8 @@ async def timeout_middleware(request: Request, call_next):
         timeout = 30  # Upload itself is fast
     elif "/repos/chat" in path:
         timeout = 60  # RAG + AI response
+    elif "/voice/transcribe-answer" in path:
+        timeout = 120  # Whisper transcription: local CPU, up to 60s
     elif "/contribution/analyze" in path:
         timeout = 60  # AI analysis
     else:
@@ -227,6 +245,18 @@ async def health_check():
         checks["embedding_model"] = "healthy"
     except ImportError:
         checks["embedding_model"] = "not installed"
+
+    # Check Whisper
+    try:
+        from services.whisper_transcriber import test_whisper
+        result = test_whisper()
+        checks["whisper"] = (
+            "healthy"
+            if result["status"] == "ok"
+            else f"unhealthy: {result.get('error')}"
+        )
+    except Exception as e:
+        checks["whisper"] = f"not installed: {e}"
 
     overall = "healthy" if all(
         v == "healthy" for v in checks.values()

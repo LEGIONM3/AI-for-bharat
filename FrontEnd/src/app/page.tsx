@@ -27,10 +27,10 @@ import { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 
 const developers = [
-    { name: "Saranraj U", role: "Frontend Designer", initial: "S", linkedin: "https://www.linkedin.com/in/saranraj-u" },
-    { name: "Mohith R", role: "Backend Developer", initial: "M", linkedin: "https://www.linkedin.com/in/mohith-r" },
-    { name: "Sabarivasan E", role: "Database Architect", initial: "S", linkedin: "https://www.linkedin.com/in/sabarivasan-e" },
-    { name: "Kishore E", role: "DevOps Engineer", initial: "K", linkedin: "https://www.linkedin.com/in/kishore-e" },
+    { name: "Saranraj U", role: "Frontend Designer", initial: "S", linkedin: "https://www.linkedin.com/in/saranraj-u-663615352" },
+    { name: "Mohith R", role: "Backend Developer", initial: "M", linkedin: "https://www.linkedin.com/in/mohithr3" },
+    { name: "Sabarivasan E", role: "Database Architect", initial: "S", linkedin: "https://www.linkedin.com/in/sabarivasan-e-2aa50233b" },
+    { name: "Kishore E", role: "DevOps Engineer", initial: "K", linkedin: "https://www.linkedin.com/in/kishore-e-69b331293" },
 ];
 
 export default function HomePage() {

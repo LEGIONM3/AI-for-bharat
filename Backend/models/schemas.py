@@ -86,6 +86,10 @@ class RepoStatusResponse(BaseModel):
 
 # ─── Learning Models ──────────────────────────────────────────────────────────
 
+class PresetPlanRequest(BaseModel):
+    plan_id: str
+
+
 class RoadmapRequest(BaseModel):
     goal: str
     stack: List[str]
@@ -96,6 +100,38 @@ class RoadmapRequest(BaseModel):
 class ConceptCompleteRequest(BaseModel):
     roadmap_id: str
     concept_id: str
+
+
+class ConceptRequest(BaseModel):
+    topic: str
+    roadmap_id: str
+    concept_id: str
+    difficulty: Optional[str] = "intermediate"
+
+
+class ConceptChatRequest(BaseModel):
+    topic: str
+    concept_content: Optional[str] = ""
+    question: str
+    roadmap_id: Optional[str] = None
+
+
+class ConceptProgressRequest(BaseModel):
+    roadmap_id: str
+    concept_id: str
+    phase_id: str
+    step: str = "complete"
+    score: Optional[float] = 0
+    completed: bool = True
+
+
+class SkillGapRequest(BaseModel):
+    topic: str
+    skill_areas: List[str]
+    quiz_score: float = 0.0
+    viva_score: float = 0.0
+    quiz_answers: List[Any] = []
+    viva_answers: List[Any] = []
 
 
 class LearningModuleRequest(BaseModel):
@@ -124,17 +160,20 @@ class AssessmentStartRequest(BaseModel):
     POST /api/assessment/start
 
     repo_id added so questions can be tailored to a specific repository.
+    mode: "text" (MCQ) | "voice" (open-ended, spoken answers)
     """
     topic: str
     difficulty: Optional[str] = "intermediate"
     num_questions: Optional[int] = 5
-    repo_id: Optional[str] = None          # NEW — enables repo-contextual quizzes
+    repo_id: Optional[str] = None
+    mode: Optional[str] = "text"           # NEW — "text" | "voice"
 
 
 class AssessmentAnswerRequest(BaseModel):
     assessment_id: str
     question_id: str
     answer: str
+    mode: Optional[str] = "text"           # NEW — "text" | "voice" (affects eval leniency)
 
 
 class VoiceAssessmentAnswerRequest(BaseModel):

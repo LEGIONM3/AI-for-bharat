@@ -245,7 +245,7 @@ const DEMO_ROADMAP: RoadmapPhase[] = [
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function LearningRoadmap({ roadmap = DEMO_ROADMAP }: { roadmap?: RoadmapPhase[] }) {
+export default function LearningRoadmap({ roadmap = DEMO_ROADMAP, roadmapId, topic }: { roadmap?: RoadmapPhase[], roadmapId?: string, topic?: string }) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
         const initial: Record<string, boolean> = {};
         roadmap.forEach(phase => phase.items.forEach(item => { initial[item.id] = item.done; }));
@@ -391,7 +391,13 @@ export default function LearningRoadmap({ roadmap = DEMO_ROADMAP }: { roadmap?: 
                                                 return (
                                                     <button
                                                         key={item.id}
-                                                        onClick={() => !isLocked && toggle(item.id)}
+                                                        onClick={() => {
+                                                            if (!isLocked && roadmapId && topic) {
+                                                                const sPhaseMatch = phase.phase.match(/\d+/);
+                                                                const phaseNum = sPhaseMatch ? sPhaseMatch[0].replace(/^0+/, '') : "1";
+                                                                window.location.href = `/learning/lesson?roadmap=${roadmapId}&topic=${topic}&concept=${item.id}&phase=phase_${phaseNum}`;
+                                                            }
+                                                        }}
                                                         disabled={isLocked}
                                                         className={`w-full flex items-center gap-4 p-3.5 rounded-2xl border transition-all text-left group/item
                                                             ${checked
@@ -413,7 +419,7 @@ export default function LearningRoadmap({ roadmap = DEMO_ROADMAP }: { roadmap?: 
 
                                         {/* CTA for active phase */}
                                         {phase.status === "active" && (
-                                            <Link href="/learning/lesson" className="mt-6 flex items-center gap-2 text-[10px] font-black text-saffron uppercase tracking-widest hover:gap-4 transition-all w-fit">
+                                            <Link href={roadmapId && topic ? `/learning/lesson?roadmap=${roadmapId}&topic=${topic}&concept=${phase.items.find(i => !checkedItems[i.id])?.id || phase.items[0]?.id}&phase=phase_${phase.phase.match(/\d+/) ? phase.phase.match(/\d+/)?.[0].replace(/^0+/, '') : "1"}` : "/learning/lesson"} className="mt-6 flex items-center gap-2 text-[10px] font-black text-saffron uppercase tracking-widest hover:gap-4 transition-all w-fit">
                                                 Continue Learning <ChevronRight size={14} />
                                             </Link>
                                         )}

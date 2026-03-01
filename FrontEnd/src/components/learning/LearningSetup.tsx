@@ -8,6 +8,7 @@ import {
   CheckCircle2, Calendar, Archive
 } from "lucide-react";
 import Button from "@/components/ui/Button";
+import apiClient from "@/services/apiClient";
 
 interface LearningSetupProps {
   onSuccess?: (planData: any) => void;
@@ -22,10 +23,12 @@ export default function LearningSetup({ onSuccess }: LearningSetupProps) {
 
   const [status, setStatus] = useState<"idle" | "loading" | "preview">("idle");
   const [showWarning, setShowWarning] = useState(false);
+  const [generatedPlanId, setGeneratedPlanId] = useState<string | null>(null);
+  const [generatedRoadmap, setGeneratedRoadmap] = useState<any>(null);
 
   const subjects = ["C++", "C", "C#", "SQL", "REACT", "PYTHON"];
 
-  const handleCreatePlan = () => {
+  const handleCreatePlan = async () => {
     if (!topic) {
       alert("Please pick a concept node first.");
       return;
@@ -38,20 +41,43 @@ export default function LearningSetup({ onSuccess }: LearningSetupProps) {
       setShowWarning(true);
     }
 
-    // Simulate Neural Engine Processing
-    setTimeout(() => {
+    try {
+      const { data } = await apiClient.post("/learning/roadmap", {
+        goal: `${level.toLowerCase()} mastery in ${topic}`,
+        stack: [topic],
+        timeline: duration === "CUSTOM" ? customDuration : duration,
+        current_level: level.toLowerCase()
+      });
+      if (data && data.id) {
+        setGeneratedPlanId(data.id);
+      }
+      setGeneratedRoadmap(data);
       setStatus("preview");
-    }, 3000);
+    } catch (e) {
+      console.error("Failed to generate plan", e);
+      setStatus("idle");
+      alert("Failed to generate learning plan.");
+    }
   };
 
   const confirmFinalPlan = () => {
-    const finalDuration = duration === "CUSTOM" ? customDuration : duration;
-    onSuccess?.({
-      topic,
-      level,
-      duration: finalDuration,
-      timeline: "Neural Pulse Alpha-01"
-    });
+    if (generatedPlanId) {
+      onSuccess?.({
+        topic,
+        level,
+        duration: duration === "CUSTOM" ? customDuration : duration,
+        roadmapId: generatedPlanId,
+        id: generatedPlanId
+      });
+    } else {
+      onSuccess?.({
+        topic,
+        level,
+        duration: duration === "CUSTOM" ? customDuration : duration,
+        roadmapId: null,
+        id: null
+      });
+    }
   };
 
   return (
@@ -103,8 +129,8 @@ export default function LearningSetup({ onSuccess }: LearningSetupProps) {
                         key={sub}
                         onClick={() => setTopic(sub)}
                         className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 border ${topic === sub
-                            ? "bg-saffron text-white border-saffron shadow-lg shadow-saffron/20"
-                            : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10 hover:text-white"
+                          ? "bg-saffron text-white border-saffron shadow-lg shadow-saffron/20"
+                          : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10 hover:text-white"
                           }`}
                       >
                         {sub}
@@ -154,8 +180,8 @@ export default function LearningSetup({ onSuccess }: LearningSetupProps) {
                         key={tm}
                         onClick={() => { setDuration(tm); setCustomDuration(""); }}
                         className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border ${duration === tm
-                            ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20"
-                            : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10 hover:text-white"
+                          ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20"
+                          : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10 hover:text-white"
                           }`}
                       >
                         {tm}
@@ -190,8 +216,8 @@ export default function LearningSetup({ onSuccess }: LearningSetupProps) {
                         key={lvl}
                         onClick={() => setLevel(lvl)}
                         className={`flex-1 px-4 py-5 rounded-full text-[10px] font-black uppercase tracking-[0.3em] transition-all border italic ${level === lvl
-                            ? "bg-white text-black border-white shadow-xl"
-                            : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10"
+                          ? "bg-white text-black border-white shadow-xl"
+                          : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10"
                           }`}
                       >
                         {lvl}

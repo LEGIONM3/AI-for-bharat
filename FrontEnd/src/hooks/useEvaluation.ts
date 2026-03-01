@@ -4,7 +4,7 @@ import { useState } from "react";
 import { evaluationService } from "@/services/evaluationService";
 
 export default function useEvaluation() {
-    const [question, setQuestion] = useState("");
+    const [question, setQuestion] = useState<any>(null);
     const [result, setResult] = useState<any>(null);
     const [loading, setLoading] = useState(false);
 

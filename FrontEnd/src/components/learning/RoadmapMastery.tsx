@@ -1,22 +1,76 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Trophy, CheckCircle2, Star, ArrowRight, RefreshCcw, Sparkles, Plus, AlertTriangle, Layout } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
+import apiClient from "@/services/apiClient";
+import Loader from "@/components/ui/Loader";
+import { useRouter } from "next/navigation";
 
 interface RoadmapMasteryProps {
     onReview: () => void;
-    pendingJourneys?: number;
+    topic?: string;
 }
 
 export default function RoadmapMastery({
     onReview,
-    pendingJourneys = 1 // Simulating pending journeys by default for now
+    topic
 }: RoadmapMasteryProps) {
-    const hasPending = pendingJourneys > 0;
     const { t } = useLanguage();
+    const router = useRouter();
+
+    const [nextLevel, setNextLevel] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!topic) return;
+        const checkLevel = async () => {
+            setLoading(true);
+            try {
+                const { data } = await apiClient.get(`/learning/available-levels/${topic}`);
+                if (data.next_level) {
+                    setNextLevel(data.next_level);
+                }
+            } catch (err) {
+                console.error("Failed to fetch available levels", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        checkLevel();
+    }, [topic]);
+
+    const handleCreateNextLevel = async () => {
+        if (!topic || !nextLevel) return;
+        setLoading(true);
+        try {
+            const { data } = await apiClient.post("/learning/roadmap", {
+                goal: `${nextLevel} level mastery in ${topic}`,
+                stack: [topic],
+                timeline: nextLevel === "intermediate" ? "4 weeks" : "8 weeks",
+                current_level: nextLevel
+            });
+            if (data && data.id) {
+                router.push(`/learning/roadmap/${data.id}`);
+            } else {
+                router.push("/learning/dashboard");
+            }
+        } catch (e) {
+            console.error("Failed creating next level", e);
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center py-20">
+                <Loader />
+            </div>
+        );
+    }
 
     return (
         <motion.div
@@ -47,34 +101,46 @@ export default function RoadmapMastery({
                     {t("legendary_mastery_title").split(' ')[0]} <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/20">{t("legendary_mastery_title").split(' ')[1]}</span>
                 </h2>
 
-                {hasPending ? (
-                    <div className="p-8 rounded-[2.5rem] bg-orange-500/10 border border-orange-500/30 mb-12 max-w-2xl">
-                        <div className="flex items-center justify-center gap-3 text-orange-500 mb-4 px-2">
-                            <AlertTriangle size={20} />
-                            <span className="text-xs font-black uppercase tracking-[0.3em] italic">{t("pending_protocol")}</span>
+                {nextLevel ? (
+                    <div className="p-8 rounded-[2.5rem] bg-saffron/10 border border-saffron/30 mb-12 max-w-2xl">
+                        <div className="flex items-center justify-center gap-3 text-saffron mb-4 px-2">
+                            <Star size={20} />
+                            <span className="text-xs font-black uppercase tracking-[0.3em] italic">Level Unlocked</span>
                         </div>
                         <p className="text-white/70 text-lg font-medium italic leading-relaxed">
-                            {t("finish_pending")} ({pendingJourneys})
+                            You have mastered this tier! The {nextLevel.toUpperCase()} pathway for {topic} is now available.
                         </p>
                     </div>
                 ) : (
                     <p className="text-white/50 text-xl font-medium italic mb-12 max-w-2xl mx-auto">
-                        {t("integrity_verified")}
+                        {t("all_protocols_mastered")} You have achieved maximum proficiency.
                     </p>
                 )}
 
                 {/* Action Grid */}
                 <div className="flex flex-col md:flex-row gap-6 w-full max-w-lg">
-                    <Link href={hasPending ? "/learning/dashboard" : "/learning/setup"} className="flex-1">
+                    {nextLevel ? (
                         <Button
-                            variant={hasPending ? "secondary" : "saffron"}
+                            variant="saffron"
                             size="lg"
-                            className="w-full py-8 italic tracking-tighter"
+                            onClick={handleCreateNextLevel}
+                            className="flex-1 py-8 italic tracking-tighter"
                         >
-                            {hasPending ? t("finish_pending") : t("new_plan")}
-                            {hasPending ? <Layout size={20} /> : <Plus size={20} />}
+                            Start {nextLevel} Journey
+                            <ArrowRight size={20} />
                         </Button>
-                    </Link>
+                    ) : (
+                        <Link href="/learning/dashboard" className="flex-1">
+                            <Button
+                                variant="saffron"
+                                size="lg"
+                                className="w-full py-8 italic tracking-tighter"
+                            >
+                                Return to HQ
+                                <Layout size={20} />
+                            </Button>
+                        </Link>
+                    )}
 
                     <button
                         onClick={onReview}
@@ -87,7 +153,7 @@ export default function RoadmapMastery({
 
                 <div className="mt-16 flex items-center gap-3 text-green-bharat">
                     <CheckCircle2 size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em]">SYSTEM STATUS: {hasPending ? t("partial_core") : t("all_protocols_mastered")}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em]">SYSTEM STATUS: {nextLevel ? t("partial_core") : t("all_protocols_mastered")}</span>
                 </div>
             </div>
         </motion.div>

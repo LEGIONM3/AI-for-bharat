@@ -6,13 +6,15 @@ import {
     Target, Shield, Cpu, Sparkles, ChevronRight, CheckCircle2,
     XCircle, AlertTriangle, BookOpen, ArrowRight, RotateCcw,
     Share2, Zap, Brain, TrendingUp, Award, Clock, Check, Loader2,
-    SkipForward
+    SkipForward, MessageSquare, Headphones, Mic, Lock, Volume2
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useAssessment from "@/hooks/useAssessment";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { assessmentVoiceService } from "@/services/assessmentVoiceService";
 
 const NUM_QUESTION_OPTIONS = [3, 5, 10, 15, 20];
 const TOPIC_SUGGESTIONS = [
@@ -149,10 +151,94 @@ function SetupScreen({
     );
 }
 
+/* ═══════════════ MODE SELECTION ═══════════════ */
+type AssessmentMode = "text" | "voice";
+
+function ModeSelectionScreen({ onSelect }: { onSelect: (m: AssessmentMode) => void }) {
+    return (
+        <motion.div key="mode" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-2xl mx-auto">
+            <div className="lovable-card p-12 md:p-16 bg-black/40 border-white/5 rounded-[48px] text-center">
+                <Brain className="text-saffron mx-auto mb-8" size={36} />
+                <h2 className="text-2xl font-black text-white uppercase tracking-widest mb-2">How Do You Want to Answer?</h2>
+                <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mb-12">Applies to all questions in this assessment</p>
+                <div className="grid grid-cols-2 gap-6">
+                    <button id="mode-text" onClick={() => onSelect("text")} className="group flex flex-col items-center gap-5 p-8 rounded-[28px] border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/30 transition-all">
+                        <MessageSquare size={28} className="text-blue-400" />
+                        <div>
+                            <p className="text-white font-black text-sm uppercase tracking-widest mb-1">💬 Text Based</p>
+                            <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest">Type your answers with keyboard</p>
+                        </div>
+                    </button>
+                    <button id="mode-voice" onClick={() => onSelect("voice")} className="group flex flex-col items-center gap-5 p-8 rounded-[28px] border border-saffron/20 bg-saffron/5 hover:bg-saffron/10 hover:border-saffron/40 transition-all">
+                        <Headphones size={28} className="text-saffron" />
+                        <div>
+                            <p className="text-white font-black text-sm uppercase tracking-widest mb-1">🎤 Voice Based</p>
+                            <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest">Speak aloud — AI listens &amp; transcribes</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+/* ═══════════════ VOICE ANSWER BUTTON ═══════════════ */
+function EvalVoiceButton({ assessmentId, questionId, onAnswerComplete, onCancelAutoPlay }: {
+    assessmentId: string; questionId: string;
+    onAnswerComplete: (t: string) => void; onCancelAutoPlay?: () => void;
+}) {
+    const { state, duration, error, startRecording, stopRecording } = useVoiceRecorder();
+    const [transcript, setTranscript] = useState<string | null>(null);
+    const [locked, setLocked] = useState(false);
+    const [procMsg, setProcMsg] = useState("");
+
+    const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+
+    const handleClick = async () => {
+        if (locked || state === "processing") return;
+        if (state === "idle" || state === "error") {
+            onCancelAutoPlay?.();
+            await startRecording();
+        } else if (state === "recording") {
+            setLocked(true);
+            try {
+                const blob = await stopRecording();
+                setProcMsg("Transcribing…");
+                const text = await assessmentVoiceService.transcribeAnswer(blob, assessmentId, questionId);
+                setTranscript(text || "[No speech detected]");
+                onAnswerComplete(text || "[No speech detected]");
+            } catch { const fb = "[Voice transcription failed]"; setTranscript(fb); onAnswerComplete(fb); }
+            finally { setProcMsg(""); }
+        }
+    };
+
+    if (locked && transcript) return (
+        <div className="rounded-2xl border border-white/10 p-5 bg-white/5 space-y-2">
+            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><Lock size={10} /> Answer Locked — We Heard:</p>
+            <p className="text-white text-sm italic">&ldquo;{transcript}&rdquo;</p>
+        </div>
+    );
+
+    return (
+        <div className="flex flex-col items-center gap-3 w-full">
+            <button onClick={handleClick} disabled={locked || state === "processing"}
+                className={`w-full py-5 rounded-2xl font-black tracking-wider uppercase text-sm transition-all flex items-center justify-center gap-3 ${state === "recording" ? "bg-red-500 text-white animate-pulse" : state === "processing" || procMsg ? "bg-white/10 text-white/40 cursor-wait" : locked ? "bg-white/5 text-white/20 cursor-not-allowed" : "bg-orange-500 hover:bg-orange-600 text-white"}`}>
+                {state === "idle" && !locked && <><Mic size={16} /> CLICK TO ANSWER</>}
+                {state === "recording" && <><span className="w-3 h-3 rounded-full bg-white" />REC {fmt(duration)} — CLICK TO STOP &amp; SUBMIT</>}
+                {(state === "processing" || procMsg) && <><Loader2 size={16} className="animate-spin" />{procMsg || "PROCESSING…"}</>}
+                {locked && !procMsg && <><Lock size={14} /> ANSWER SUBMITTED</>}
+            </button>
+            {error && <p className="text-red-400 text-xs text-center font-bold">{error}</p>}
+            {state === "idle" && !locked && <p className="text-white/25 text-[10px] text-center font-bold uppercase tracking-widest">⚠ Click once to start · Click again to stop · No retakes</p>}
+        </div>
+    );
+}
+
 /* ═══════════════ SCREEN 2 — ACTIVE ASSESSMENT ═══════════════ */
 function ActiveScreen({
     questions, currentQuestionIndex, onSubmit, onSkip,
-    isSubmittingAnswer, currentFeedback, error, clearError
+    isSubmittingAnswer, currentFeedback, error, clearError,
+    assessmentId, assessmentMode
 }: any) {
     const [selectedOption, setSelectedOption] = useState<string>("");
     const [textAnswer, setTextAnswer] = useState("");
@@ -227,7 +313,17 @@ function ActiveScreen({
                     </h3>
 
                     {/* Answer area */}
-                    {isMultiChoice ? (
+                    {assessmentMode === "voice" && !currentFeedback ? (
+                        <EvalVoiceButton
+                            assessmentId={assessmentId}
+                            questionId={question.id}
+                            onAnswerComplete={(transcript) => {
+                                onSubmit(question.id, transcript);
+                                setTextAnswer("");
+                                setSelectedOption("");
+                            }}
+                        />
+                    ) : assessmentMode !== "voice" && isMultiChoice ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {question.options.map((option: string) => (
                                 <button
@@ -248,7 +344,7 @@ function ActiveScreen({
                                 </button>
                             ))}
                         </div>
-                    ) : (
+                    ) : assessmentMode !== "voice" ? (
                         <textarea
                             value={textAnswer}
                             onChange={e => setTextAnswer(e.target.value)}
@@ -257,7 +353,7 @@ function ActiveScreen({
                             rows={5}
                             className="w-full bg-white/[0.03] border border-white/10 rounded-2xl p-6 text-sm text-white font-medium placeholder:text-white/10 focus:outline-none focus:border-saffron/40 focus:bg-white/[0.05] transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                         />
-                    )}
+                    ) : null}
 
                     {/* Error */}
                     {error && (
@@ -343,7 +439,7 @@ function ResultsScreen({ results, topic, onRetake, onNewTopic, questions, localA
     const percentage = results?.percentage ?? 0;
     const passed = results?.passed ?? (percentage >= 60);
     const totalScore = results?.total_score ?? 0;
-    const maxScore = results?.max_score ?? (questions.length * 100);
+    const maxScore = results?.max_score ?? (questions.length * 10); // 10 pts per question
     const avgScore = results?.avg_score ?? 0;
     const displayTopic = results?.topic || topic;
     const answers = results?.answers ?? [];
@@ -598,7 +694,21 @@ export default function EvaluationPage() {
         startAssessment, submitAnswer, skipQuestion,
         resetAssessment, resetWithTopic,
         setTopic, setNumQuestions, clearError,
+        assessmentId,
     } = useAssessment();
+
+    const [assessmentMode, setAssessmentMode] = useState<AssessmentMode | null>(null);
+    const [showModeSelect, setShowModeSelect] = useState(false);
+
+    const handleStart = useCallback(() => {
+        setShowModeSelect(true);
+    }, [setShowModeSelect]);
+
+    const handleCleanupAndResults = useCallback(async (aId: string) => {
+        if (assessmentMode === "voice") {
+            assessmentVoiceService.cleanupAudio(aId);
+        }
+    }, [assessmentMode]);
 
     return (
         <PageContainer>
@@ -635,20 +745,32 @@ export default function EvaluationPage() {
             {/* Screen Router */}
             <div className="px-4">
                 <AnimatePresence mode="wait">
-                    {screen === "setup" && (
+                    {screen === "setup" && !showModeSelect && (
                         <SetupScreen
                             key="setup"
                             topic={topic}
                             setTopic={setTopic}
                             numQuestions={numQuestions}
                             setNumQuestions={setNumQuestions}
-                            onStart={() => startAssessment(topic, numQuestions)}
+                            onStart={handleStart}
                             isLoading={isLoading}
                             error={error}
                         />
                     )}
 
-                    {screen === "active" && (
+                    {/* Mode selection — shown after Start click, before questions load */}
+                    {showModeSelect && screen === "setup" && assessmentMode === null && (
+                        <ModeSelectionScreen
+                            key="mode"
+                            onSelect={(m) => {
+                                setAssessmentMode(m);
+                                setShowModeSelect(false);
+                                startAssessment(topic, numQuestions, m);
+                            }}
+                        />
+                    )}
+
+                    {screen === "active" && assessmentMode !== null && (
                         <ActiveScreen
                             key="active"
                             questions={questions}
@@ -659,6 +781,8 @@ export default function EvaluationPage() {
                             currentFeedback={currentFeedback}
                             error={error}
                             clearError={clearError}
+                            assessmentId={assessmentId}
+                            assessmentMode={assessmentMode}
                         />
                     )}
 

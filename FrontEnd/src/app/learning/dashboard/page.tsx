@@ -9,6 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
 import useLearning from "@/hooks/useLearning";
 import apiClient from "@/services/apiClient";
+import { useRouter } from "next/navigation";
 
 // DYNAMIC CORE COMPONENTS FOR SPEED
 const LearningOverview = dynamic(() => import("@/components/learning/LearningOverview"), { ssr: false });
@@ -36,7 +37,7 @@ export default function LearningDashboardPage() {
     const loadJourneys = async () => {
         setLoadingJourneys(true);
         try {
-            const { data } = await apiClient.get("/repos/history");
+            const { data } = await apiClient.get("/learning/roadmaps");
             setRepoJourneys(Array.isArray(data) ? data : []);
         } catch {
             setRepoJourneys([]);
@@ -50,9 +51,15 @@ export default function LearningDashboardPage() {
         loadJourneys();
     };
 
-    const handleNewPlan = (_data: any) => {
-        setIsInitialized(true);
-        setCurrentView("overview");
+    const router = useRouter();
+
+    const handleNewPlan = (data: any) => {
+        if (data.roadmapId) {
+            router.push(`/learning/roadmap/${data.id || data.roadmapId}`);
+        } else {
+            setIsInitialized(true);
+            setCurrentView("overview");
+        }
     };
 
     return (
@@ -164,32 +171,33 @@ export default function LearningDashboardPage() {
                         {!loadingJourneys && repoJourneys.length > 0 && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 {repoJourneys.map((journey: any) => (
-                                    <Link
-                                        key={journey.id}
-                                        href="/learning/lesson"
-                                        className="lovable-card group p-8 bg-white/[0.02] border border-white/5 hover:border-saffron/40 transition-all flex flex-col"
-                                    >
-                                        <div className="flex justify-between items-start mb-10">
-                                            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-saffron group-hover:text-white transition-all">
-                                                <Zap size={20} />
+                                    <div key={journey.id} className="relative group">
+                                        <Link
+                                            href={`/learning/roadmap/${journey.id}`}
+                                            className="lovable-card p-8 bg-white/[0.02] border border-white/5 hover:border-saffron/40 transition-all flex flex-col h-full block"
+                                        >
+                                            <div className="flex justify-between items-start mb-10">
+                                                <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-saffron group-hover:text-white transition-all">
+                                                    <Zap size={20} />
+                                                </div>
+                                                <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${journey.status === 'completed' ? 'border-green-bharat/30 bg-green-bharat/10 text-green-bharat' : 'border-saffron/30 bg-saffron/10 text-saffron'
+                                                    }`}>
+                                                    {journey.status?.toUpperCase() || "ACTIVE"}
+                                                </div>
                                             </div>
-                                            <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${journey.status === 'analyzed' ? 'border-green-bharat/30 bg-green-bharat/10 text-green-bharat' : 'border-saffron/30 bg-saffron/10 text-saffron'
-                                                }`}>
-                                                {journey.status?.toUpperCase() || "PENDING"}
+
+                                            <h4 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-2 group-hover:text-saffron transition-colors">
+                                                {journey.goal || "New Roadmap"}
+                                            </h4>
+                                            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-10">
+                                                Progress: {journey.progress || 0}% • {journey.current_level?.toUpperCase() || "BEGINNER"}
+                                            </p>
+
+                                            <div className="mt-auto pt-4 flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-[0.3em] group-hover:text-white transition-colors">
+                                                {journey.status === 'completed' ? t("review_mastery") : t("resume_training")} <ArrowRight size={12} />
                                             </div>
-                                        </div>
-
-                                        <h4 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-2 group-hover:text-saffron transition-colors">
-                                            {journey.repo_name || "Repository"}
-                                        </h4>
-                                        <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-10">
-                                            Last Sync: {journey.last_scanned ? new Date(journey.last_scanned).toLocaleDateString() : "—"}
-                                        </p>
-
-                                        <div className="mt-auto pt-4 flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-[0.3em] group-hover:text-white transition-colors">
-                                            {t("resume_training")} <ArrowRight size={12} />
-                                        </div>
-                                    </Link>
+                                        </Link>
+                                    </div>
                                 ))}
                             </div>
                         )}

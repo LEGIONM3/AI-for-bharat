@@ -12,10 +12,11 @@ function mapError(err: any): string {
 
 export const evaluationService = {
     /** POST /assessment/start */
-    startAssessment: async (topic: string, numQuestions: number) => {
+    startAssessment: async (topic: string, numQuestions: number, mode: string = "text") => {
         const { data } = await apiClient.post("/assessment/start", {
             topic,
             num_questions: numQuestions,
+            mode,
         });
         return {
             assessment_id: data.assessment_id as string,
