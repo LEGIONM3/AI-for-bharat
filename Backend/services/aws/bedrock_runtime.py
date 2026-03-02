@@ -52,12 +52,9 @@ _bedrock_client = None
 def get_bedrock_client():
     global _bedrock_client
     if _bedrock_client is None:
-        from config import settings
         _bedrock_client = boto3.client(
             "bedrock-runtime",
-            region_name=settings.BEDROCK_REGION,
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=os.getenv("BEDROCK_REGION", "us-east-1")
         )
     return _bedrock_client
 
@@ -171,14 +168,11 @@ def _build_payload(
 
 
 def _parse_nova_response(result: dict) -> str:
-    """Extract the text content from a Nova Pro response dict."""
-    if "output" in result and "message" in result["output"]:
-        content = result["output"]["message"].get("content", [])
-        if content:
-            return content[0].get("text", "")
-    if "content" in result and result["content"]:
-        return result["content"][0].get("text", "")
-    return str(result)
+    """Extract the text content from a converse API response dict."""
+    try:
+        return result["output"]["message"]["content"][0]["text"]
+    except (KeyError, IndexError, TypeError):
+        return str(result)
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
@@ -214,14 +208,13 @@ def invoke_model(
         model_id = get_model_id()
         
         try:
-            response = client.invoke_model(
+            response = client.converse(
                 modelId=model_id,
-                body=json.dumps(payload),
-                contentType="application/json",
-                accept="application/json",
+                messages=payload["messages"],
+                system=payload["system"],
+                inferenceConfig=payload["inferenceConfig"]
             )
-            result = json.loads(response["body"].read())
-            raw_text = _parse_nova_response(result)
+            raw_text = _parse_nova_response(response)
             return clean_llm_output(raw_text)
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
@@ -303,14 +296,13 @@ def invoke_model_structured(
         model_id = get_model_id()
         
         try:
-            response = client.invoke_model(
+            response = client.converse(
                 modelId=model_id,
-                body=json.dumps(payload),
-                contentType="application/json",
-                accept="application/json",
+                messages=payload["messages"],
+                system=payload["system"],
+                inferenceConfig=payload["inferenceConfig"]
             )
-            result = json.loads(response["body"].read())
-            raw_text = _parse_nova_response(result)
+            raw_text = _parse_nova_response(response)
     
             # Use clean_llm_json: strips fences + parses JSON with fallback extraction
             parsed = clean_llm_json(raw_text)
