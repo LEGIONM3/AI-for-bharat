@@ -41,6 +41,15 @@ def get_user_by_email(email: str):
     return items[0] if items else None
 
 
+def get_user_by_username(username: str):
+    table = get_users_table()
+    response = table.scan(
+        FilterExpression="username = :username",
+        ExpressionAttributeValues={":username": username},
+    )
+    items = response.get("Items", [])
+    return items[0] if items else None
+
 # ─── Internal helper ──────────────────────────────────────────────────────────
 
 async def _do_register(body: RegisterRequest) -> TokenResponse:
@@ -101,22 +110,30 @@ async def signup(request: SignupRequest):
 @router.post("/login", response_model=TokenResponse)
 async def login(request: LoginRequest):
     """Authenticate a user and return JWT token."""
-    user = get_user_by_email(request.email)
+    identifier = request.identifier
+    
+    if "@" in identifier:
+        user = get_user_by_email(identifier)
+        error_msg = "Invalid email or password"
+    else:
+        user = get_user_by_username(identifier)
+        error_msg = "Invalid username or password"
+
     if not user or not verify_password(request.password, user.get("password_hash", "")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail=error_msg,
         )
 
     token = create_access_token({
         "sub": user["user_id"],
-        "email": user["email"],
-        "username": user["username"],
+        "email": user.get("email", ""),
+        "username": user.get("username", identifier),
     })
     return TokenResponse(
         access_token=token,
         user_id=user["user_id"],
-        username=user["username"],
+        username=user.get("username", identifier),
         rank=user.get("rank", "Novice"),
     )
 
