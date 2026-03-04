@@ -32,23 +32,46 @@ def get_users_table():
 
 
 def get_user_by_email(email: str):
+    """Query via GSI email-index (ACTIVE)."""
     table = get_users_table()
-    response = table.scan(
-        FilterExpression="email = :email",
-        ExpressionAttributeValues={":email": email},
-    )
-    items = response.get("Items", [])
-    return items[0] if items else None
+    try:
+        response = table.query(
+            IndexName="email-index",
+            KeyConditionExpression="email = :email",
+            ExpressionAttributeValues={":email": email}
+        )
+        items = response.get("Items", [])
+        return items[0] if items else None
+    except Exception:
+        # Fallback to scan if index not ready
+        response = table.scan(
+            FilterExpression="email = :email",
+            ExpressionAttributeValues={":email": email},
+        )
+        items = response.get("Items", [])
+        return items[0] if items else None
 
 
 def get_user_by_username(username: str):
+    """Query via GSI username-index, fallback to scan while index is building."""
     table = get_users_table()
-    response = table.scan(
-        FilterExpression="username = :username",
-        ExpressionAttributeValues={":username": username},
-    )
-    items = response.get("Items", [])
-    return items[0] if items else None
+    try:
+        response = table.query(
+            IndexName="username-index",
+            KeyConditionExpression="username = :username",
+            ExpressionAttributeValues={":username": username}
+        )
+        items = response.get("Items", [])
+        return items[0] if items else None
+    except Exception:
+        # Fallback to scan if index not ready yet
+        response = table.scan(
+            FilterExpression="username = :username",
+            ExpressionAttributeValues={":username": username},
+        )
+        items = response.get("Items", [])
+        return items[0] if items else None
+
 
 # ─── Internal helper ──────────────────────────────────────────────────────────
 
