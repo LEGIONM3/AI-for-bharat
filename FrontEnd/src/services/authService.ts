@@ -4,7 +4,7 @@ export const authService = {
     login: async (email: string, pass: string) => {
         try {
             const { data } = await apiClient.post("/auth/login", {
-                email,
+                identifier: email, // supports both username and email
                 password: pass,
             });
 
