@@ -1,5 +1,5 @@
 """
-AWS Bedrock service — Claude Sonnet agent reasoning.
+AWS Bedrock service — Amazon Nova Pro AI reasoning.
 """
 import json
 import logging
@@ -28,7 +28,7 @@ class BedrockService:
             )
         return self._client
 
-    def invoke_claude(
+    def invoke_nova(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
@@ -37,8 +37,7 @@ class BedrockService:
         conversation_history: Optional[List[Dict]] = None,
     ) -> str:
         """
-        Invoke Amazon Nova Pro via Bedrock using the matching schema.
-        Note: The method name is kept as 'invoke_claude' for backward compatibility.
+        Invoke Amazon Nova Pro via Bedrock using the converse API.
         """
         messages = []
 
@@ -66,13 +65,13 @@ class BedrockService:
             body["system"] = [{"text": system_prompt}]
 
         try:
-            response = self.client.invoke_model(
+            response = self.client.converse(
                 modelId=settings.BEDROCK_MODEL_ID,
-                body=json.dumps(body),
-                contentType="application/json",
-                accept="application/json",
+                messages=body["messages"],
+                system=body.get("system", []),
+                inferenceConfig=body["inferenceConfig"],
             )
-            result = json.loads(response["body"].read())
+            result = response
             # For Nova, the output text is usually in output.message.content[0].text
             if "output" in result and "message" in result["output"]:
                 return result["output"]["message"]["content"][0]["text"]
@@ -82,7 +81,7 @@ class BedrockService:
             logger.error(f"Bedrock invocation failed: {e}")
             raise RuntimeError(f"AI service unavailable: {e}")
 
-    def invoke_claude_structured(
+    def invoke_nova_structured(
         self,
         prompt: str,
         system_prompt: str,
@@ -90,14 +89,14 @@ class BedrockService:
         max_tokens: int = 4096,
     ) -> Dict[str, Any]:
         """
-        Invoke Claude and attempt to parse a JSON response.
+        Invoke Amazon Nova Pro and parse a structured JSON response.
         """
         full_system = (
             f"{system_prompt}\n\n"
             f"You MUST respond with valid JSON only. Schema: {schema_description}\n"
             "Do not include any text outside the JSON object."
         )
-        raw = self.invoke_claude(prompt, system_prompt=full_system, max_tokens=max_tokens)
+        raw = self.invoke_nova(prompt, system_prompt=full_system, max_tokens=max_tokens)
 
         # Strip markdown code fences if present
         clean = raw.strip()
@@ -108,7 +107,7 @@ class BedrockService:
         try:
             return json.loads(clean)
         except json.JSONDecodeError:
-            logger.warning("Claude did not return valid JSON, wrapping in text field.")
+            logger.warning("Nova Pro did not return valid JSON, wrapping in text field.")
             return {"text": raw, "raw": True}
 
 

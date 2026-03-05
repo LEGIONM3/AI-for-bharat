@@ -1,6 +1,6 @@
 """
-Agent Tool Endpoints — exposed as Bedrock agent tool actions.
-Each endpoint acts as a tool for the Claude-powered agent.
+Agent Tool Endpoints — exposed as Nova Pro agent tool actions.
+Each endpoint acts as a tool for the Nova Pro-powered agent.
 """
 import logging
 from typing import Optional, List

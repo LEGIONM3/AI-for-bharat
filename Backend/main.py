@@ -107,7 +107,7 @@ A production-grade AI backend for the Bharat AI Developer Intelligence Platform.
 ### Features
 - 🔐 JWT Authentication with bcrypt password hashing
 - 📦 GitHub Repository Analysis with RAG pipeline
-- 🤖 Claude Sonnet (via Amazon Bedrock) for AI reasoning
+- 🤖 Amazon Nova Pro (via Amazon Bedrock) for AI reasoning
 - 🗄️ Amazon DynamoDB for metadata storage
 - 📂 Amazon S3 for voice recordings
 - 🎙️ Amazon Transcribe for speech-to-text
