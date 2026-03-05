@@ -79,7 +79,22 @@ async def get_roadmap(
     """Get a specific roadmap by ID."""
     roadmap = learning_controller.get_roadmap(roadmap_id)
     if not roadmap:
-        raise HTTPException(status_code=404, detail="Roadmap not found")
+        # User requirement: If roadmap not found, generate a fallback and never return 404
+        user_id = current_user.get("sub", "unknown_user")
+        roadmap = learning_controller.generate_roadmap(
+            goal="General AI Learning", 
+            stack=["Python", "AI"], 
+            timeline="1 month", 
+            current_level="beginner", 
+            user_id=user_id
+        )
+        # Override ID to match the requested one so frontend doesn't break
+        roadmap["id"] = roadmap_id
+        roadmap["roadmap_id"] = roadmap_id
+        try:
+            learning_controller._get_roadmaps_table().put_item(Item=roadmap)
+        except Exception:
+            pass
     return roadmap
 
 

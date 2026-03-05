@@ -26,7 +26,7 @@ class LearningController:
     @staticmethod
     def request_preset_plan(plan_id: str, user_id: str):
         try:
-            resp = LearningController._get_roadmaps_table().get_item(Key={"roadmap_id": plan_id})
+            resp = LearningController._get_roadmaps_table().get_item(Key={"id": plan_id})
             preset = resp.get("Item")
             if not preset:
                 return None
@@ -110,7 +110,7 @@ class LearningController:
     @staticmethod
     def get_roadmap(roadmap_id: str) -> Dict[str, Any]:
         try:
-            resp = LearningController._get_roadmaps_table().get_item(Key={"roadmap_id": roadmap_id})
+            resp = LearningController._get_roadmaps_table().get_item(Key={"id": roadmap_id})
             return resp.get("Item")
         except Exception:
             return None
