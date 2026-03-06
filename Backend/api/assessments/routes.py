@@ -90,6 +90,7 @@ async def start_assessment(
         difficulty=body.difficulty or "intermediate",
         num_questions=body.num_questions or 5,
         mode=mode,
+        repo_id=body.repo_id,
     )
 
     if not questions:

@@ -50,14 +50,14 @@ export default function useAssessment() {
     }, []);
 
     // ─── SCREEN 1 → START ────────────────────────────────────────────
-    const startAssessment = useCallback(async (topic: string, numQuestions: number, mode: string = "text") => {
+    const startAssessment = useCallback(async (topic: string, numQuestions: number, mode: string = "text", repoId?: string) => {
         if (!topic.trim()) {
             setField("error", "Please enter a topic to assess.");
             return;
         }
         merge({ isLoading: true, error: null, screen: "setup" });
         try {
-            const data = await evaluationService.startAssessment(topic.trim(), numQuestions, mode);
+            const data = await evaluationService.startAssessment(topic.trim(), numQuestions, mode, repoId);
 
             if (!data.questions || data.questions.length === 0) {
                 merge({ isLoading: false, error: "No questions generated for this topic. Try a different topic." });

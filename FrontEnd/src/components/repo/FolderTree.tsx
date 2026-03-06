@@ -3,15 +3,20 @@
 import Card from "@/components/ui/Card";
 import { Folder, FileCode } from "lucide-react";
 
-const files = [
-    { name: "src/", type: "folder" },
-    { name: "src/components/", type: "folder" },
-    { name: "src/hooks/", type: "folder" },
-    { name: "package.json", type: "file" },
-    { name: "README.md", type: "file" },
-];
+interface FolderTreeProps {
+    files?: { name: string; type: string }[];
+}
 
-export default function FolderTree() {
+export default function FolderTree({ files = [] }: FolderTreeProps) {
+    if (!files || files.length === 0) {
+        return (
+            <Card title="Structural Hierarchy">
+                <div className="p-4 text-center text-white/40 text-[11px] font-bold uppercase tracking-widest">
+                    No structural hierarchy detected.
+                </div>
+            </Card>
+        );
+    }
     return (
         <Card title="Structural Hierarchy">
             <ul className="space-y-3">

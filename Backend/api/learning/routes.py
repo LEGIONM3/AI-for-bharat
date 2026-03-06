@@ -22,7 +22,7 @@ from models.schemas import (
     LearningModuleRequest, SuccessResponse,
     ConceptRequest, ConceptChatRequest,
     ConceptProgressRequest, SkillGapRequest,
-    PresetPlanRequest
+    PresetPlanRequest, PhaseProgressRequest
 )
 import boto3
 from config import settings
@@ -96,6 +96,27 @@ async def get_roadmap(
         except Exception:
             pass
     return roadmap
+
+
+@router.post("/roadmap/{roadmap_id}/progress")
+async def update_roadmap_progress(
+    roadmap_id: str,
+    body: PhaseProgressRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update progress for a specific phase in a roadmap."""
+    user_id = current_user.get("sub", "unknown_user")
+    updated_roadmap = learning_controller.update_phase_progress(
+        roadmap_id=roadmap_id,
+        phase_index=body.phase_index,
+        completed=body.completed,
+        user_id=user_id
+    )
+
+    if not updated_roadmap:
+        raise HTTPException(status_code=400, detail="Invalid roadmap or phase index")
+
+    return updated_roadmap
 
 
 @router.post("/concept-complete")

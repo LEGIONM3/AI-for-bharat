@@ -109,6 +109,11 @@ class ConceptRequest(BaseModel):
     difficulty: Optional[str] = "intermediate"
 
 
+class PhaseProgressRequest(BaseModel):
+    phase_index: int
+    completed: bool = True
+
+
 class ConceptChatRequest(BaseModel):
     topic: str
     concept_content: Optional[str] = ""

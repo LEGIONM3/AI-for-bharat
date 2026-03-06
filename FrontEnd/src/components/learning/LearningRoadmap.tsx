@@ -19,9 +19,11 @@ import {
     Lock,
     TestTube2,
     BarChart3,
-    Layers
+    Layers,
+    Check
 } from "lucide-react";
 import Link from "next/link";
+import { learningService } from "@/services/learningService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CheckItem = { id: string; label: string; done: boolean };
@@ -245,7 +247,7 @@ const DEMO_ROADMAP: RoadmapPhase[] = [
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function LearningRoadmap({ roadmap = DEMO_ROADMAP, roadmapId, topic }: { roadmap?: RoadmapPhase[], roadmapId?: string, topic?: string }) {
+export default function LearningRoadmap({ roadmap = DEMO_ROADMAP, roadmapId, topic, onRefresh }: { roadmap?: RoadmapPhase[], roadmapId?: string, topic?: string, onRefresh?: () => void }) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
         const initial: Record<string, boolean> = {};
         roadmap.forEach(phase => phase.items.forEach(item => { initial[item.id] = item.done; }));
@@ -259,6 +261,20 @@ export default function LearningRoadmap({ roadmap = DEMO_ROADMAP, roadmapId, top
 
     const toggle = (id: string) => setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
     const togglePhase = (i: number) => setExpandedPhases(prev => ({ ...prev, [i]: !prev[i] }));
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    const handleCompletePhase = async (phaseIndex: number) => {
+        if (!roadmapId) return;
+        setIsUpdating(true);
+        try {
+            await learningService.updateProgress(roadmapId, phaseIndex, true);
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            console.error("Failed to update progress:", error);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
 
     const totalItems = roadmap.reduce((a, p) => a + p.items.length, 0);
     const doneItems = Object.values(checkedItems).filter(Boolean).length;
@@ -419,9 +435,20 @@ export default function LearningRoadmap({ roadmap = DEMO_ROADMAP, roadmapId, top
 
                                         {/* CTA for active phase */}
                                         {phase.status === "active" && (
-                                            <Link href={roadmapId && topic ? `/learning/lesson?roadmap=${roadmapId}&topic=${topic}&concept=${phase.items.find(i => !checkedItems[i.id])?.id || phase.items[0]?.id}&phase=phase_${phase.phase.match(/\d+/) ? phase.phase.match(/\d+/)?.[0].replace(/^0+/, '') : "1"}` : "/learning/lesson"} className="mt-6 flex items-center gap-2 text-[10px] font-black text-saffron uppercase tracking-widest hover:gap-4 transition-all w-fit">
-                                                Continue Learning <ChevronRight size={14} />
-                                            </Link>
+                                            <div className="mt-6 flex items-center justify-between">
+                                                <Link href={roadmapId && topic ? `/learning/lesson?roadmap=${roadmapId}&topic=${topic}&concept=${phase.items.find(i => !checkedItems[i.id])?.id || phase.items[0]?.id}&phase=phase_${phase.phase.match(/\d+/) ? phase.phase.match(/\d+/)?.[0].replace(/^0+/, '') : "1"}` : "/learning/lesson"} className="flex items-center gap-2 text-[10px] font-black text-saffron uppercase tracking-widest hover:gap-4 transition-all w-fit">
+                                                    Continue Learning <ChevronRight size={14} />
+                                                </Link>
+
+                                                <button
+                                                    onClick={() => handleCompletePhase(i)}
+                                                    disabled={isUpdating}
+                                                    className="flex items-center gap-2 px-4 py-2 text-[10px] font-black text-green-bharat border border-green-bharat/30 bg-green-bharat/10 rounded-full uppercase tracking-widest hover:bg-green-bharat/20 transition-all disabled:opacity-50"
+                                                >
+                                                    <Check size={12} />
+                                                    {isUpdating ? "Saving..." : "Mark Phase Complete"}
+                                                </button>
+                                            </div>
                                         )}
                                     </motion.div>
                                 )}

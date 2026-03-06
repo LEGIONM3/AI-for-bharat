@@ -351,7 +351,7 @@ function RepoAnalysisPageContent() {
                                     </div>
 
                                     <div id="structural-pulse" className="w-full scroll-mt-32">
-                                        <FolderTree />
+                                        <FolderTree files={repoData.folder_structure || []} />
                                     </div>
 
                                     {/* Footer */}

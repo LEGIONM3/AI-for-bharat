@@ -12,12 +12,14 @@ function mapError(err: any): string {
 
 export const evaluationService = {
     /** POST /assessment/start */
-    startAssessment: async (topic: string, numQuestions: number, mode: string = "text") => {
-        const { data } = await apiClient.post("/assessment/start", {
+    startAssessment: async (topic: string, numQuestions: number, mode: string = "text", repoId?: string) => {
+        const payload: any = {
             topic,
             num_questions: numQuestions,
             mode,
-        });
+        };
+        if (repoId) payload.repo_id = repoId;
+        const { data } = await apiClient.post("/assessment/start", payload);
         return {
             assessment_id: data.assessment_id as string,
             topic: data.topic as string,

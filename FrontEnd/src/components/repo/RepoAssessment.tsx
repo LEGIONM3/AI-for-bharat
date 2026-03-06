@@ -522,44 +522,7 @@ export default function RepoAssessment({
                         )}
                     </div>
 
-                    {/* Topic select */}
-                    <div className="mb-8 relative z-10">
-                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.3em] mb-3">
-                            Topic to Assess
-                        </label>
-                        {topicOptions.length > 0 ? (
-                            <select
-                                value={selectedTopic}
-                                onChange={(e) => setSelectedTopic(e.target.value)}
-                                className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-6 py-4 text-white text-sm font-bold focus:outline-none focus:border-saffron/50 transition-all appearance-none cursor-pointer"
-                            >
-                                {topicOptions.map((t, i) => (
-                                    <option key={i} value={t} className="bg-[#0d0f11]">
-                                        {t}
-                                    </option>
-                                ))}
-                                <option value="__custom__" className="bg-[#0d0f11]">
-                                    ✏️ Enter custom topic...
-                                </option>
-                            </select>
-                        ) : (
-                            <input
-                                type="text"
-                                placeholder="e.g. Java, Python, React..."
-                                value={selectedTopic}
-                                onChange={(e) => setSelectedTopic(e.target.value)}
-                                className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-6 py-4 text-white text-sm font-bold placeholder:text-white/20 focus:outline-none focus:border-saffron/50 transition-all"
-                            />
-                        )}
-                        {selectedTopic === "__custom__" && (
-                            <input
-                                type="text"
-                                placeholder="Enter topic..."
-                                className="w-full mt-3 bg-white/[0.04] border border-white/10 rounded-2xl px-6 py-4 text-white text-sm font-bold placeholder:text-white/20 focus:outline-none focus:border-saffron/50 transition-all"
-                                onChange={(e) => setSelectedTopic(e.target.value || "__custom__")}
-                            />
-                        )}
-                    </div>
+
 
                     {/* Num questions */}
                     <div className="mb-10 relative z-10">
@@ -604,17 +567,9 @@ export default function RepoAssessment({
                             )}
                             <button
                                 onClick={() => {
-                                    const topic =
-                                        selectedTopic === "__custom__" ? "" : selectedTopic;
-                                    if (!topic) return;
-                                    // Show mode selection FIRST
                                     setShowModeSelect(true);
                                 }}
-                                disabled={
-                                    ass.isLoading ||
-                                    !selectedTopic ||
-                                    selectedTopic === "__custom__"
-                                }
+                                disabled={ass.isLoading}
                                 className="flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl bg-saffron text-white text-[11px] font-black uppercase tracking-widest shadow-xl shadow-saffron/30 hover:shadow-saffron/50 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
                             >
                                 {ass.isLoading ? (
@@ -643,10 +598,10 @@ export default function RepoAssessment({
             <AnimatePresence mode="wait">
                 <ModeSelectionScreen
                     onSelect={(mode) => {
-                        const topic = selectedTopic === "__custom__" ? "" : selectedTopic;
                         setAssessmentMode(mode);
                         setShowModeSelect(false);
-                        ass.startAssessment(topic || "General Programming", numQuestions, mode);
+                        const topic = repoName || "Repository Intelligence";
+                        ass.startAssessment(topic, numQuestions, mode, repoId || undefined);
                     }}
                 />
             </AnimatePresence>

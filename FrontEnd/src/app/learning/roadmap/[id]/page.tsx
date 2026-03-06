@@ -21,18 +21,18 @@ export default function MasteryJourneyPage({ params }: { params: Promise<{ id: s
     const [roadmapData, setRoadmapData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchRoadmap = async () => {
-            try {
-                const { data } = await apiClient.get(`/learning/roadmap/${id}`);
-                setRoadmapData(data);
-            } catch (error) {
-                console.error("Failed to load roadmap", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const fetchRoadmap = async () => {
+        try {
+            const { data } = await apiClient.get(`/learning/roadmap/${id}`);
+            setRoadmapData(data);
+        } catch (error) {
+            console.error("Failed to load roadmap", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         if (id) fetchRoadmap();
     }, [id]);
 
@@ -140,6 +140,7 @@ export default function MasteryJourneyPage({ params }: { params: Promise<{ id: s
                         roadmap={mappedPhases}
                         roadmapId={roadmapData.id || roadmapData.roadmap_id || id}
                         topic={roadmapData.stack?.[0] || roadmapData.goal}
+                        onRefresh={fetchRoadmap}
                     />
                 ) : (
                     <div className="text-center py-20 text-white/30 text-sm font-bold tracking-widest uppercase">

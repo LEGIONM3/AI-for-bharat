@@ -1,5 +1,5 @@
 from services.ai_orchestrator import ai_orchestrator
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 class AssessmentController:
@@ -10,8 +10,9 @@ class AssessmentController:
         difficulty: str = "intermediate",
         num_questions: int = 5,
         mode: str = "text",
+        repo_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        return ai_orchestrator.generate_quiz(topic, difficulty, num_questions, mode)
+        return ai_orchestrator.generate_quiz(topic, difficulty, num_questions, mode, repo_id)
 
     @staticmethod
     def evaluate_answer(

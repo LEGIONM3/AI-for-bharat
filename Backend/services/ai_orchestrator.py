@@ -26,6 +26,7 @@ Output format:
     "contribution_opportunities": ["Opportunity 1", "Opportunity 2"],
     "risks": ["Risk 1"],
     "strengths": ["Strength 1"],
+    "folder_structure": [{{"name": "folder_or_file_name", "type": "folder"}}],
     "mermaid_diagram": "mermaid diagram code or empty string"
 }}"""
         return invoke_model_structured(
@@ -243,11 +244,22 @@ score < 40  -> "CRITICAL"
         )
 
     @staticmethod
-    def generate_quiz(topic: str, difficulty: str, num_questions: int = 5, mode: str = "text") -> List[Dict[str, Any]]:
+    def generate_quiz(topic: str, difficulty: str, num_questions: int = 5, mode: str = "text", repo_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        context_section = ""
+        if repo_id:
+            context = rag_pipeline.get_relevant_context(repo_id, topic, top_k=6)
+            context_section = f"""
+Use the following repository code context to ask specific questions about the codebase matching the topic "{topic}".
+For example, ask about the purpose of certain libraries, architectural decisions, and how a component captures or processes data in this project.
+REPOSITORY CONTEXT:
+{context}
+"""
+
         if mode == "voice":
             prompt = f"""Generate {num_questions} open-ended interview-style
 questions about: {topic}
 Difficulty: {difficulty}
+{context_section}
 
 Rules for voice questions:
 - Questions must be open-ended (no multiple choice)
@@ -281,6 +293,7 @@ Return ONLY this JSON — no markdown:
         else:
             prompt = f"""Generate a {num_questions}-question multiple choice quiz on: {topic}
 Difficulty: {difficulty}
+{context_section}
 
 Return JSON array:
 [

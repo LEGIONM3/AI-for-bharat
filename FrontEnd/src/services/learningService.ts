@@ -41,5 +41,13 @@ export const learningService = {
             viva_question: data.viva_questions?.[0]?.question || "Explain what you learned.",
             practice_code: data.sandbox_starter_code || data.code_examples?.[0]?.code || "// Write code here"
         };
+    },
+
+    updateProgress: async (roadmapId: string, phaseIndex: number, completed: boolean = true) => {
+        const { data } = await apiClient.post(`/learning/roadmap/${roadmapId}/progress`, {
+            phase_index: phaseIndex,
+            completed: completed
+        });
+        return data;
     }
 };

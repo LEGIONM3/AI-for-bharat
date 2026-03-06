@@ -173,20 +173,20 @@ export default function HomePage() {
                         <StackCard
                             icon={<Monitor className="text-saffron" size={32} />}
                             title="Frontend"
-                            tech="Next.js 15+, Tailwind CSS v4, Framer Motion"
-                            desc="Ultra-fluid, high-performance client interface with real-time AI synchronization."
+                            tech="Next.js 15, Tailwind CSS v4, Zustand, React Flow"
+                            desc="Ultra-fluid client interface with robust global state management and interactive visualizations."
                         />
                         <StackCard
                             icon={<Server className="text-blue-400" size={32} />}
                             title="Backend"
-                            tech="FastAPI, Python Core, Groq/OpenAI Intelligence"
-                            desc="Highly concurrent asynchronous backbone managing complex neural computations."
+                            tech="FastAPI, Python, AWS Bedrock (Nova Pro)"
+                            desc="Highly concurrent asynchronous backbone managing complex neural LLM computations and RAG pipelines."
                         />
                         <StackCard
                             icon={<Database className="text-green-bharat" size={32} />}
-                            title="Database"
-                            tech="PostgreSQL, FAISS Vector Store, Boto3 S3"
-                            desc="Multi-modal storage architecture supporting massive-scale semantic search and retrieval."
+                            title="Database & Storage"
+                            tech="AWS DynamoDB, FAISS Vector Store, AWS S3"
+                            desc="Multi-modal storage architecture supporting scalable NoSQL data and massive-scale semantic retrieval."
                         />
                     </div>
                 </section>

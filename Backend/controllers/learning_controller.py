@@ -2,7 +2,7 @@ from services.ai_orchestrator import ai_orchestrator
 from database.dynamodb import get_dynamodb_resource
 from config import settings
 from utils.helpers import generate_id, utc_now_iso
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 class LearningController:
@@ -110,7 +110,7 @@ class LearningController:
     @staticmethod
     def get_roadmap(roadmap_id: str) -> Dict[str, Any]:
         try:
-            resp = LearningController._get_roadmaps_table().get_item(Key={"id": roadmap_id})
+            resp = LearningController._get_roadmaps_table().get_item(Key={"roadmap_id": roadmap_id})
             return resp.get("Item")
         except Exception:
             return None
@@ -339,5 +339,45 @@ class LearningController:
             "locked_levels": locked_levels
         }
 
+    @staticmethod
+    def calculate_progress(phases: List[Dict[str, Any]]) -> int:
+        total = len(phases)
+        if total == 0:
+            return 0
+        completed = sum(1 for p in phases if p.get("completed"))
+        return int((completed / total) * 100)
+
+    @staticmethod
+    def update_phase_progress(roadmap_id: str, phase_index: int, completed: bool, user_id: str) -> Optional[Dict[str, Any]]:
+        roadmap = LearningController.get_roadmap(roadmap_id)
+        if not roadmap:
+            print(f"DEBUG: roadmap {roadmap_id} not found")
+            return None
+        if roadmap.get("user_id") != user_id:
+            print(f"DEBUG: roadmap user_id={roadmap.get('user_id')} != {user_id}")
+            return None
+
+        phases = roadmap.get("phases", [])
+        if phase_index < 0 or phase_index >= len(phases):
+            return None
+
+        phases[phase_index]["completed"] = completed
+
+        # Only update concepts strictly depending on this flag if needed
+        # Or mark all concepts in phase completed if phase completed:
+        # User implies just phase completed status is enough
+        for concept in phases[phase_index].get("concepts", []):
+            concept["completed"] = completed
+
+        roadmap["phases"] = phases
+        roadmap["progress"] = LearningController.calculate_progress(phases)
+
+        try:
+            LearningController._get_roadmaps_table().put_item(Item=roadmap)
+            return roadmap
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to update progress: {e}")
+            return None
 
 learning_controller = LearningController()

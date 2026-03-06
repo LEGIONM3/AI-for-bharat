@@ -320,9 +320,47 @@ def _update_repo_status(repo_id: str, status: str, error: Optional[str] = None):
         logger.warning(f"Could not update repo status: {e}")
 
 
+def _get_folder_structure(repo_id: str) -> list:
+    import os
+    base_path = os.path.join(settings.REPO_BASE_PATH, repo_id)
+    if not os.path.exists(base_path):
+        return []
+
+    structure = []
+    # keep it simple, max 150 items so we don't bloat dynamo
+    for root, dirs, files in os.walk(base_path):
+        # normalize path
+        rel_root = os.path.relpath(root, base_path).replace("\\", "/")
+        if rel_root == ".":
+            rel_root = ""
+            
+        unwanted = [d for d in dirs if d in {".git", "node_modules", "__pycache__", ".venv", "venv", "env", "dist", "build", ".next", ".nuxt", "vendor", "target"} or d.startswith(".")]
+        for d in unwanted:
+            dirs.remove(d)
+        
+        for d in dirs:
+            dir_path = f"{rel_root}/{d}/" if rel_root else f"{d}/"
+            structure.append({"name": dir_path, "type": "folder"})
+            
+        for f in files:
+            if f.startswith("."): continue
+            file_path = f"{rel_root}/{f}" if rel_root else f
+            structure.append({"name": file_path, "type": "file"})
+            
+        if len(structure) > 150:
+            structure = structure[:150]
+            break
+
+    # sort: folders first, then files
+    structure.sort(key=lambda x: (x["type"] != "folder", x["name"]))
+    return structure
+
+
 def _generate_intelligence_report(repo_id: str) -> dict:
     """Use AI Orchestrator via Controller to generate an intelligence report."""
-    return repo_controller.generate_intelligence(repo_id)
+    intel = repo_controller.generate_intelligence(repo_id)
+    intel["folder_structure"] = _get_folder_structure(repo_id)
+    return intel
 
 
 def _save_intelligence_report(repo_id: str, intelligence: dict):
@@ -339,6 +377,7 @@ def _save_intelligence_report(repo_id: str, intelligence: dict):
             "mermaid_diagram": intelligence.get("mermaid_diagram", ""),
             "risks": intelligence.get("risks", []),
             "strengths": intelligence.get("strengths", []),
+            "folder_structure": intelligence.get("folder_structure", []),
             "generated_at": utc_now_iso(),
         }
         get_intelligence_table().put_item(Item=item)
@@ -421,6 +460,7 @@ async def get_repo_intelligence(repo_id: str, current_user: dict = Depends(get_c
             "mermaid_diagram": intelligence.get("mermaid_diagram", ""),
             "risks": intelligence.get("risks", []),
             "strengths": intelligence.get("strengths", []),
+            "folder_structure": intelligence.get("folder_structure", []),
             "generated_at": intelligence.get("generated_at", ""),
         }
     except HTTPException:
