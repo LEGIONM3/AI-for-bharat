@@ -162,18 +162,12 @@ def _get_cache_table():
     return db.Table(settings.DYNAMODB_USERS_TABLE)
 
 def _get_dashboard_data(user_id: str) -> dict:
-    from api.dashboard.routes import get_dashboard_summary
-    # Need to get dashboard data. Assuming a simple implementation here
-    # Since I don't have the exact get_dashboard_summary signature in this context,
-    # I'll query the users table directly for some stats if needed, or if dashboard depends on others,
-    # I'll retrieve it. Assuming get_dashboard_summary works or we extract directly:
+    # Query DynamoDB directly since get_dashboard is tied to FastAPI request context
     try:
         table = get_dynamodb_resource().Table(settings.DYNAMODB_USERS_TABLE)
         response = table.get_item(Key={"user_id": user_id})
         user = response.get("Item", {})
         
-        # Getting actual data if possible. Since we just need dashboard data for prompt:
-        # We can simulate getting it from the user profile, or call the exact controller.
         return {
             "repos_analyzed": user.get("repos_analyzed", 0) or user.get("total_repos", 0),
             "concept_mastery": user.get("concept_mastery", []),
