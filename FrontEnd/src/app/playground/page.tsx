@@ -12,9 +12,7 @@ import {
     Minimize2, History, X, ChevronRight
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import usePlayground, { LANGUAGE_LABELS, TEMPLATES, type Language } from "@/hooks/usePlayground";
-
-const LANGUAGE_OPTIONS: Language[] = ["python", "javascript", "typescript", "java", "cpp", "go"];
+import usePlayground, { LANGUAGE_LABELS, LANGUAGE_OPTIONS, TEMPLATES, type Language } from "@/hooks/usePlayground";
 
 export default function PlaygroundPage() {
     const { t } = useLanguage();
@@ -143,9 +141,6 @@ export default function PlaygroundPage() {
                                             className={`w-full flex items-center justify-between px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-white/5 ${language === lang ? "text-saffron" : "text-white/40"}`}
                                         >
                                             {LANGUAGE_LABELS[lang]}
-                                            {lang !== "python" && (
-                                                <span className="text-[7px] text-white/20 uppercase tracking-widest">Soon</span>
-                                            )}
                                             {language === lang && <ChevronRight size={10} className="text-saffron" />}
                                         </button>
                                     ))}
@@ -250,7 +245,7 @@ export default function PlaygroundPage() {
                                 <div className="w-2 h-2 rounded-full bg-green-500/40" />
                             </div>
                             <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] ml-4">
-                                neural_main.{language === "python" ? "py" : language === "javascript" ? "js" : language === "typescript" ? "ts" : language === "go" ? "go" : language === "java" ? "java" : "cpp"}
+                                neural_main.{ language === "python" ? "py" : language === "typescript" ? "ts" : "js" }
                             </span>
                         </div>
                         {!isFullscreen && (
@@ -356,7 +351,9 @@ export default function PlaygroundPage() {
                             </div>
                             <div className="flex justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
                                 <span className="text-white/30">Runtime</span>
-                                <span className="text-green-bharat">AWS Lambda</span>
+                                <span className="text-green-bharat">
+                                    {language === "python" ? "Server Sandbox" : "Browser Engine"}
+                                </span>
                             </div>
                             <div className="flex justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
                                 <span className="text-white/30">Last Run</span>

@@ -3,76 +3,62 @@
 import { useState, useCallback, useEffect } from "react";
 import apiClient from "@/services/apiClient";
 
-export type Language = "python" | "javascript" | "typescript" | "java" | "cpp" | "go";
+// ─── Working execution environments ───────────────────────────────────────────
+// Python  → server-side sandboxed exec (backend)
+// JS / TS → client-side eval (browser)
+// Others  → will be added when a self-hosted runtime is available
+
+export type Language = "python" | "javascript" | "typescript";
 
 export const LANGUAGE_LABELS: Record<Language, string> = {
     python: "Python",
     javascript: "JavaScript",
     typescript: "TypeScript",
-    java: "Java",
-    cpp: "C++",
-    go: "Go",
 };
 
-const PYTHON_ONLY_LANGUAGES: Language[] = ["javascript", "typescript", "java", "cpp", "go"];
+export const LANGUAGE_OPTIONS: Language[] = ["python", "javascript", "typescript"];
 
 export const TEMPLATES: Record<string, { label: string; language: Language; code: string }> = {
     hello_world: {
-        label: "Hello World",
+        label: "Hello World (Python)",
         language: "python",
-        code: `print("Hello, World!")`,
+        code: `# Python Hello World\nprint("Hello, World!")\nprint("Neural Operator Online.")`,
     },
     fibonacci: {
-        label: "Fibonacci",
+        label: "Fibonacci (Python)",
         language: "python",
-        code: `def fibonacci(n):
-    if n <= 1:
-        return n
-    return fibonacci(n-1) + fibonacci(n-2)
-
-for i in range(10):
-    print(f"F({i}) = {fibonacci(i)}")`,
+        code: `def fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n\nfor i in range(10):\n    print(f"F({i}) = {fibonacci(i)}")`,
     },
     list_ops: {
-        label: "List Operations",
+        label: "List Comprehension (Python)",
         language: "python",
-        code: `numbers = [1, 2, 3, 4, 5]
-squared = [x**2 for x in numbers]
-print(f"Original: {numbers}")
-print(f"Squared:  {squared}")
-print(f"Sum:      {sum(numbers)}")`,
+        code: `numbers = [1, 2, 3, 4, 5]\nsquared = [x**2 for x in numbers]\nprint(f"Original: {numbers}")\nprint(f"Squared:  {squared}")\nprint(f"Sum:      {sum(numbers)}")`,
     },
-    api_request: {
-        label: "API Request",
-        language: "python",
-        code: `import urllib.request
-import json
-
-url = "https://api.github.com/users/octocat"
-with urllib.request.urlopen(url) as response:
-    data = json.loads(response.read())
-    print(f"User:  {data['login']}")
-    print(f"Repos: {data['public_repos']}")`,
+    js_closure: {
+        label: "Closure (JavaScript)",
+        language: "javascript",
+        code: `// JavaScript Closure demo\nfunction counter() {\n    let count = 0;\n    return {\n        inc: () => ++count,\n        get: () => count\n    };\n}\nconst c = counter();\nc.inc(); c.inc();\nconsole.log("Count:", c.get());`,
+    },
+    js_promise: {
+        label: "Async / Await (JavaScript)",
+        language: "javascript",
+        code: `async function delay(ms) {\n    return new Promise(resolve => setTimeout(resolve, ms));\n}\n\nasync function main() {\n    console.log("Start");\n    await delay(100);\n    console.log("Resolved after 100ms");\n}\n\nmain();`,
+    },
+    ts_types: {
+        label: "Generics (TypeScript → JS)",
+        language: "typescript",
+        code: `// TypeScript is transpiled to JS for browser execution\n// Type annotations are stripped at runtime\n\nfunction identity<T>(arg: T): T {\n    return arg;\n}\n\nconsole.log(identity<string>("Neural Operator"));\nconsole.log(identity<number>(42));`,
     },
 };
 
 const DEFAULT_CODE = `# Welcome to Thenali AI Playground
-# Press Ctrl+Enter to run  |  Python 3.x
+# Ctrl+Enter to run | Python 3.x
 
 def greet(name: str) -> str:
     return f"Hello, {name}!"
 
 print(greet("Neural Operator"))
 `;
-
-export interface PlaygroundState {
-    code: string;
-    language: Language;
-    output: string | null;
-    error: string | null;
-    isRunning: boolean;
-    executionTime: number | null;
-}
 
 export interface SessionEntry {
     id: string;
@@ -104,6 +90,50 @@ export default function usePlayground() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [code, language]);
 
+    // ─── Client-side JS/TS execution ───────────────────────────────
+    const runClientSide = useCallback((src: string): { output: string | null; error: string | null; ms: number } => {
+        const logs: string[] = [];
+        const origLog = console.log;
+        const origWarn = console.warn;
+        const origError = console.error;
+
+        console.log = (...args: any[]) =>
+            logs.push(args.map(a => (typeof a === "object" ? JSON.stringify(a, null, 2) : String(a))).join(" "));
+        console.warn = (...args: any[]) =>
+            logs.push("[WARN] " + args.map(a => String(a)).join(" "));
+        console.error = (...args: any[]) =>
+            logs.push("[ERROR] " + args.map(a => String(a)).join(" "));
+
+        const start = performance.now();
+        let evalError: string | null = null;
+
+        try {
+            // For TypeScript: strip simple type annotations so eval doesn't break
+            const runnable = src
+                .replace(/:\s*\w+(\[\])?\s*(?=[,)=])/g, "")          // remove param type hints
+                .replace(/<\w+>/g, "")                                  // remove generic markers
+                .replace(/^export\s+/gm, "");                          // remove export keyword
+
+            // eslint-disable-next-line no-eval
+            eval(runnable);
+        } catch (e: any) {
+            evalError = e.message || "Runtime error";
+        } finally {
+            console.log = origLog;
+            console.warn = origWarn;
+            console.error = origError;
+        }
+
+        const ms = Math.round(performance.now() - start);
+
+        if (evalError) return { output: logs.length > 0 ? logs.join("\n") : null, error: evalError, ms };
+        return {
+            output: logs.length > 0 ? logs.join("\n") : "(no output — use console.log() to print)",
+            error: null,
+            ms,
+        };
+    }, []);
+
     // ─── Run code ──────────────────────────────────────────────────
     const runCode = useCallback(async () => {
         const trimmed = code.trim();
@@ -113,37 +143,44 @@ export default function usePlayground() {
             return;
         }
 
-        // Non-Python languages: send to backend but handle gracefully
-        if (PYTHON_ONLY_LANGUAGES.includes(language)) {
-            // Show a friendly message instead of a broken call for unimplemented langs
-            setOutput(null);
-            setError(`${LANGUAGE_LABELS[language]} execution coming soon. Currently Python only.`);
-            return;
-        }
-
         setIsRunning(true);
         setOutput(null);
         setError(null);
         setExecutionTime(null);
 
+        const start = Date.now();
+
         try {
-            const { data } = await apiClient.post("/playground/run", {
-                code: trimmed,
-                language,
-            });
-
-            setExecutionTime(data.execution_time_ms ?? null);
-
-            if (data.error) {
-                setError(`Runtime Error:\n${data.error}`);
-                setOutput(null);
-            } else if (!data.output || data.output.trim() === "") {
-                setOutput("Code executed successfully (no output)");
+            if (language === "javascript" || language === "typescript") {
+                // ── Browser execution ──
+                const result = runClientSide(trimmed);
+                setExecutionTime(result.ms);
+                if (result.error) {
+                    setError(`Runtime Error:\n${result.error}`);
+                    if (result.output) setOutput(result.output);
+                } else {
+                    setOutput(result.output);
+                }
             } else {
-                setOutput(data.output);
+                // ── Python: server-side sandbox ──
+                const { data } = await apiClient.post("/playground/run", {
+                    code: trimmed,
+                    language: "python",
+                });
+
+                setExecutionTime(data.execution_time_ms ?? Math.round(Date.now() - start));
+
+                if (data.error) {
+                    setError(`Runtime Error:\n${data.error}`);
+                    setOutput(null);
+                } else if (!data.output || data.output.trim() === "") {
+                    setOutput("Code executed successfully (no output)");
+                } else {
+                    setOutput(data.output);
+                }
             }
 
-            // Add to local session history (last 5)
+            // Session history
             const entry: SessionEntry = {
                 id: Date.now().toString(),
                 language,
@@ -151,27 +188,18 @@ export default function usePlayground() {
                 timestamp: new Date().toLocaleTimeString(),
                 code: trimmed,
             };
-            setSessionHistory(prev => [entry, ...prev].slice(0, 5));
+            setSessionHistory(prev => [entry, ...prev].slice(0, 10));
 
         } catch (err: any) {
             const status = err.response?.status;
-            if (status === 401) {
-                setError("Please login to run code.");
-            } else if (status === 408 || err.code === "ECONNABORTED") {
-                setError("Execution timed out.");
-            } else if (status === 422) {
-                setError("Invalid request. Please check your input.");
-            } else if (status === 500) {
-                setError("Server error. Please try again.");
-            } else if (!err.response) {
-                setError("Execution failed. Is the backend running?");
-            } else {
-                setError(err.response?.data?.detail || "Execution failed. Please try again.");
-            }
+            if (status === 401) setError("Please login to run code.");
+            else if (status === 408) setError("Execution timed out.");
+            else if (!err.response) setError("Execution failed. Is the backend running?");
+            else setError(err.response?.data?.detail || "Execution failed. Please try again.");
         } finally {
             setIsRunning(false);
         }
-    }, [code, language]);
+    }, [code, language, runClientSide]);
 
     // ─── Clear output ───────────────────────────────────────────────
     const clearOutput = useCallback(() => {
@@ -207,15 +235,12 @@ export default function usePlayground() {
     }, [code]);
 
     return {
-        // state
         code, setCode,
         language, setLanguage,
-        output,
-        error,
+        output, error,
         isRunning,
         executionTime,
         sessionHistory,
-        // actions
         runCode,
         clearOutput,
         loadTemplate,

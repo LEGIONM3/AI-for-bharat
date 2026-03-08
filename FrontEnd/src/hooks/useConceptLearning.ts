@@ -122,6 +122,7 @@ export function useConceptLearning() {
 
     // Progress state
     const [progressSaved, setProgressSaved] = useState(false);
+    const [isRoadmapCompleted, setIsRoadmapCompleted] = useState(false);
 
     // Keep ref to original starter code
     const originalCodeRef = useRef<string>("");
@@ -267,63 +268,23 @@ export function useConceptLearning() {
         setSandboxOutput(null);
         setSandboxError(null);
 
-        const lang = language || conceptModule?.sandbox_language || "javascript";
-
-        if (lang === "javascript" || lang === "js") {
-            // Client-side eval with captured console.log
-            try {
-                const logs: string[] = [];
-                const origLog = console.log;
-                const origError = console.error;
-                const origWarn = console.warn;
-
-                console.log = (...args: any[]) => {
-                    logs.push(args.map(a => typeof a === "object" ? JSON.stringify(a) : String(a)).join(" "));
-                };
-                console.error = (...args: any[]) => {
-                    logs.push("[ERROR] " + args.map(a => typeof a === "object" ? JSON.stringify(a) : String(a)).join(" "));
-                };
-                console.warn = (...args: any[]) => {
-                    logs.push("[WARN] " + args.map(a => typeof a === "object" ? JSON.stringify(a) : String(a)).join(" "));
-                };
-
-                try {
-                    // eslint-disable-next-line no-eval
-                    eval(code);
-                } catch (evalErr: any) {
-                    setSandboxError(evalErr.message || "Runtime error");
-                } finally {
-                    console.log = origLog;
-                    console.error = origError;
-                    console.warn = origWarn;
-                }
-
-                if (logs.length > 0) {
-                    setSandboxOutput(logs.join("\n"));
-                } else if (!sandboxError) {
-                    setSandboxOutput("(no output — use console.log() to see results)");
-                }
-            } catch (e: any) {
-                setSandboxError(e.message || "Execution failed");
-            }
-        } else {
-            // Python or other — send to backend
-            try {
-                const { data } = await apiClient.post("/playground/run", {
-                    code,
-                    language: lang
-                });
-                if (data.error) {
-                    setSandboxError(data.error);
-                } else {
-                    setSandboxOutput(data.output || "(no output)");
-                }
-            } catch (e: any) {
-                setSandboxError(e?.response?.data?.detail || "Execution failed");
-            }
+        // NATIVE AI LEARNING EVALUATION (All Concepts and Languages)
+        setIsChatLoading(true);
+        setSandboxOutput("Transmitting code structure for Neural Logic Analysis...");
+                     
+        try {
+            const { data } = await apiClient.post("/learning/concept-chat", {
+                topic: conceptModule?.topic || "Unknown Concept",
+                concept_content: `The user submitted this abstract code/text logic output in the learning sandbox:\n\n${code}`,
+                question: `Evaluate the user's code/logic structure entirely for conceptual correctness against the active learning topic. Provide a short PASS/FAIL summary, pointing out syntax or logical flaws (without full execution if simulated). Be highly constructive.`
+            });
+            setSandboxOutput("AI ANALYSIS RESULT:\n\n" + (data.response || "Analysis complete."));
+        } catch (e: any) {
+            setSandboxError("AI Analysis evaluation failed to connect.");
+        } finally {
+            setIsChatLoading(false);
+            setIsRunningCode(false);
         }
-
-        setIsRunningCode(false);
     }, [conceptModule, sandboxError]);
 
     const resetSandboxCode = useCallback(() => {
@@ -430,7 +391,7 @@ export function useConceptLearning() {
     ) => {
         try {
             const overallScore = skillGapData?.overall_score || Math.round((quizScore + vivaScore) / 2);
-            await apiClient.post("/learning/concept-progress", {
+            const { data } = await apiClient.post("/learning/concept-progress", {
                 roadmap_id: roadmapId,
                 concept_id: conceptId,
                 phase_id: phaseId,
@@ -438,6 +399,9 @@ export function useConceptLearning() {
                 score: overallScore,
                 completed: true
             });
+            if (data?.roadmap_completed) {
+                setIsRoadmapCompleted(true);
+            }
             setProgressSaved(true);
             setStepIndex(STEPS.length - 1);
             setCurrentStep("complete");
@@ -523,6 +487,8 @@ export function useConceptLearning() {
 
         // Progress
         progressSaved,
+        isRoadmapCompleted,
+        setIsRoadmapCompleted,
 
         // Navigation
         canAdvance,

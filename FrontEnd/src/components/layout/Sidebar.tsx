@@ -12,7 +12,8 @@ import {
     Zap,
     Sparkles,
     GitMerge,
-    X
+    X,
+    Newspaper
 } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
 import { memo, useCallback } from "react";
@@ -92,6 +93,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
                 <NavLink href="/evaluation" label={t("assessments")} icon={CheckCircle} onNavigate={onClose} />
                 <NavLink href="/playground" label={t("playground")} icon={Sparkles} onNavigate={onClose} />
                 <NavLink href="/contribution" label={t("contribution")} icon={GitMerge} onNavigate={onClose} />
+                <NavLink href="/news" label="Upcoming" icon={Newspaper} onNavigate={onClose} />
             </nav>
 
             {/* Footer */}

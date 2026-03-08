@@ -23,6 +23,7 @@ import {
     Check
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { learningService } from "@/services/learningService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -248,6 +249,7 @@ const DEMO_ROADMAP: RoadmapPhase[] = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function LearningRoadmap({ roadmap = DEMO_ROADMAP, roadmapId, topic, onRefresh }: { roadmap?: RoadmapPhase[], roadmapId?: string, topic?: string, onRefresh?: () => void }) {
+    const router = useRouter();
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
         const initial: Record<string, boolean> = {};
         roadmap.forEach(phase => phase.items.forEach(item => { initial[item.id] = item.done; }));
@@ -411,7 +413,7 @@ export default function LearningRoadmap({ roadmap = DEMO_ROADMAP, roadmapId, top
                                                             if (!isLocked && roadmapId && topic) {
                                                                 const sPhaseMatch = phase.phase.match(/\d+/);
                                                                 const phaseNum = sPhaseMatch ? sPhaseMatch[0].replace(/^0+/, '') : "1";
-                                                                window.location.href = `/learning/lesson?roadmap=${roadmapId}&topic=${topic}&concept=${item.id}&phase=phase_${phaseNum}`;
+                                                                router.push(`/learning/lesson?roadmap=${roadmapId}&topic=${topic}&concept=${item.id}&phase=phase_${phaseNum}`);
                                                             }
                                                         }}
                                                         disabled={isLocked}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useRef } from "react";
 import PageContainer from "@/components/layout/PageContainer";
 import Loader from "@/components/ui/Loader";
 import { motion, AnimatePresence } from "framer-motion";
@@ -32,9 +32,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useConceptLearning, STEPS, LearningStep } from "@/hooks/useConceptLearning";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { useVoice } from "@/hooks/useVoice";
 import apiClient from "@/services/apiClient";
 import ConceptSyncSuccess from "@/components/learning/ConceptSyncSuccess";
 import RoadmapMastery from "@/components/learning/RoadmapMastery";
+import { voiceService } from "@/services/voiceService";
+import { getNextConcept } from "@/utils/learningNavigation";
 
 // ─── Step 1: Concept Display ─────────────────────────────────────────────────
 
@@ -52,16 +55,20 @@ function ConceptStep({
     const voice = useVoiceRecorder();
     const [transcript, setTranscript] = useState("");
     const [isTranscribing, setIsTranscribing] = useState(false);
+    
+    const summaryVoice = useVoice();
+    const askAIVoice = useVoice();
 
     const handleMicClick = async () => {
         if (voice.isRecording) {
-            // Stop + transcribe
             try {
                 const audioBlob = await voice.stopRecording();
                 setIsTranscribing(true);
 
                 const formData = new FormData();
                 formData.append("audio", audioBlob, "recording.webm");
+                formData.append("assessment_id", "learning_concept");
+                formData.append("question_id", "learning_concept");
 
                 const { data } = await apiClient.post(
                     "/assessment/voice/transcribe-answer",
@@ -71,7 +78,8 @@ function ConceptStep({
                 const text = data.transcript || "";
                 setTranscript(text);
                 if (text.trim()) {
-                    await sendChatMessage(text);
+                    const aiResponse = await sendChatMessage(text);
+                    await askAIVoice.playText(aiResponse);
                 }
             } catch (e) {
                 console.error("Transcription failed", e);
@@ -81,6 +89,8 @@ function ConceptStep({
         } else {
             voice.reset();
             setTranscript("");
+            askAIVoice.stop();
+            summaryVoice.stop();
             voice.startRecording();
         }
     };
@@ -137,21 +147,42 @@ function ConceptStep({
                         <Mic className="text-green-400" size={28} />
                     </div>
                     <h4 className="text-lg font-black italic text-white uppercase tracking-tighter mb-2">ASK AI IN VOICE</h4>
-                    <p className="text-white/30 text-[10px] uppercase tracking-widest mb-6">
-                        {voice.isRecording ? `Recording ${voice.duration}s...` : isTranscribing ? "Transcribing..." : transcript || "Click to record your question"}
+                    <p className="text-white/30 text-[10px] uppercase tracking-widest mb-6 min-h-[1.5rem] flex items-center justify-center gap-2">
+                        {askAIVoice.state === "playing" ? (
+                            <><span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span> AI is speaking...</>
+                        ) : voice.isRecording ? `Recording ${voice.duration}s...` : isTranscribing ? "Transcribing..." : transcript || "Click to record your question"}
                     </p>
-                    <button
-                        onClick={handleMicClick}
-                        disabled={isTranscribing || voice.isProcessing}
-                        className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${voice.isRecording
-                            ? "bg-red-500 border-red-500 text-white animate-pulse"
-                            : isTranscribing || voice.isProcessing
-                                ? "bg-white/5 border-white/10 text-white/30 cursor-not-allowed"
+                    
+                    {askAIVoice.state === "playing" ? (
+                         <div className="flex gap-2">
+                             <button
+                                 onClick={() => askAIVoice.stop()}
+                                 className="px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-red-500/20 border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                             >
+                                 🛑 STOP AUDIO
+                             </button>
+                             <button
+                                 onClick={() => askAIVoice.restart()}
+                                 className="px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white flex items-center gap-2"
+                             >
+                                 <RotateCcw size={14} /> RESTART
+                             </button>
+                         </div>
+                    ) : (askAIVoice.state === "loading" || isTranscribing || voice.isProcessing) ? (
+                         <button disabled className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-white/5 border-white/10 text-white/30 cursor-not-allowed flex items-center gap-2">
+                             <Loader2 size={14} className="animate-spin" /> {askAIVoice.state === "loading" ? "GENERATING VOICE..." : "PROCESSING..."}
+                         </button>
+                    ) : (
+                         <button
+                            onClick={handleMicClick}
+                            className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${voice.isRecording
+                                ? "bg-red-500 border-red-500 text-white animate-pulse"
                                 : "bg-white/5 border-white/10 text-white/60 hover:bg-green-500 hover:text-white hover:border-green-500"
                             }`}
-                    >
-                        {voice.isRecording ? "🔴 STOP & SEND" : isTranscribing || voice.isProcessing ? "Processing..." : "INITIALIZE MIC"}
-                    </button>
+                        >
+                            {voice.isRecording ? "🔴 STOP & SEND" : "INITIALIZE MIC"}
+                        </button>
+                    )}
                     {voice.error && (
                         <p className="mt-3 text-red-400 text-[9px] font-bold uppercase tracking-widest">{voice.error}</p>
                     )}
@@ -166,13 +197,46 @@ function ConceptStep({
                     <p className="text-white/30 text-xs font-medium italic flex-1 mb-6">
                         Let the AI give you a quick summary of this concept to reinforce your understanding.
                     </p>
-                    <button
-                        onClick={() => sendChatMessage(`Give me a brief 2-sentence summary of ${conceptModule.topic} and why it matters.`)}
-                        disabled={isChatLoading}
-                        className="px-6 py-3 bg-saffron/10 border border-saffron/30 rounded-2xl text-[10px] font-black text-saffron uppercase tracking-widest hover:bg-saffron hover:text-white transition-all disabled:opacity-40"
-                    >
-                        {isChatLoading ? "Loading..." : "GET AI SUMMARY"}
-                    </button>
+                    
+                    <div className="mt-auto">
+                        {summaryVoice.state === "playing" ? (
+                             <div className="flex flex-col gap-2">
+                                <div className="text-[10px] text-saffron font-bold uppercase tracking-widest flex items-center justify-center gap-2 mb-2">
+                                    <span className="w-2 h-2 rounded-full bg-saffron animate-ping" />
+                                    Playing Summary...
+                                </div>
+                                <div className="flex gap-2 w-full justify-center">
+                                     <button
+                                         onClick={() => summaryVoice.stop()}
+                                         className="flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-red-500/20 border-red-500 text-red-500 hover:bg-red-500 hover:text-white text-center"
+                                     >
+                                         STOP
+                                     </button>
+                                     <button
+                                         onClick={() => summaryVoice.restart()}
+                                         className="flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-saffron/10 border-saffron/30 text-saffron hover:bg-saffron hover:text-white flex items-center justify-center gap-2"
+                                     >
+                                         <RotateCcw size={14} /> REPLAY
+                                     </button>
+                                </div>
+                             </div>
+                        ) : summaryVoice.state === "loading" ? (
+                            <button disabled className="w-full px-6 py-3 border rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all bg-white/5 border-white/10 text-white/30 cursor-not-allowed flex items-center justify-center gap-2">
+                                <Loader2 size={14} className="animate-spin" /> LOADING...
+                            </button>
+                        ) : (
+                            <button
+                                onClick={async () => {
+                                    const aiResponse = await sendChatMessage(`Give me a brief 2-sentence summary of ${conceptModule.topic} and why it matters.`);
+                                    await summaryVoice.playText(aiResponse);
+                                }}
+                                disabled={isChatLoading}
+                                className={`w-full px-6 py-3 border rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all bg-saffron/10 border-saffron/30 text-saffron hover:bg-saffron hover:text-white ${isChatLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                            >
+                                {isChatLoading ? "GENERATING..." : "GET AI SUMMARY + HEAR"}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -224,7 +288,18 @@ function SandboxStep({
                         </div>
                         <div className="flex items-center gap-2">
                             <Monitor size={12} className="text-white/20" />
-                            <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">sandbox_main.{language === "python" ? "py" : "js"}</span>
+                            <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">
+                                sandbox_main.{
+                                    language.toLowerCase() === "python" ? "py" :
+                                    language.toLowerCase() === "javascript" ? "js" :
+                                    language.toLowerCase() === "typescript" ? "ts" :
+                                    language.toLowerCase() === "java" ? "java" :
+                                    language.toLowerCase() === "cpp" || language.toLowerCase() === "c++" ? "cpp" :
+                                    language.toLowerCase() === "rust" ? "rs" :
+                                    language.toLowerCase() === "go" ? "go" :
+                                    language.toLowerCase() === "sql" ? "sql" : "txt"
+                                }
+                            </span>
                         </div>
                     </div>
                     <span className="px-3 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-[9px] font-black text-green-400 uppercase tracking-widest">
@@ -742,16 +817,24 @@ function LearningLessonContent() {
         sendChatMessage,
         progressSaved,
         loadConcept,
+        isRoadmapCompleted,
+        setIsRoadmapCompleted,
     } = hook;
 
     const [isConceptFinished, setIsConceptFinished] = useState(false);
-    const [isRoadmapCompleted, setIsRoadmapCompleted] = useState(false);
+    const [roadmapData, setRoadmapData] = useState<any>(null);
 
     useEffect(() => {
         if (!conceptModule && !isLoading) {
             loadConcept(topic, roadmapId, conceptId, difficulty);
         }
     }, [topic, roadmapId, conceptId, difficulty]);
+
+    useEffect(() => {
+         if (roadmapId && !roadmapData) {
+              apiClient.get(`/learning/roadmap/${roadmapId}`).then(res => setRoadmapData(res.data)).catch(console.error);
+         }
+    }, [roadmapId, roadmapData]);
 
     // Auto-calculate skill gap when entering that step
     useEffect(() => {
@@ -767,12 +850,9 @@ function LearningLessonContent() {
     // Listen for "complete" step
     useEffect(() => {
         if (currentStep === "complete") {
-            // Check if roadmap is complete
-            if (progressSaved) {
-                setIsConceptFinished(true);
-            }
+            setIsConceptFinished(true);
         }
-    }, [currentStep, progressSaved]);
+    }, [currentStep]);
 
     if (isLoading || !conceptModule) {
         return (
@@ -810,16 +890,49 @@ function LearningLessonContent() {
     }
 
     if (isConceptFinished) {
+        const nextInfo = getNextConcept(conceptId, roadmapData);
         return (
-            <PageContainer>
-                <div className="max-w-4xl mx-auto py-20">
-                    <ConceptSyncSuccess
-                        conceptName={conceptModule.title || "Neural Module"}
-                        onNext={() => router.push(`/learning/roadmap/${roadmapId}`)}
-                        onReview={() => { setIsConceptFinished(false); hook.setActiveStep(1); }}
-                    />
-                </div>
-            </PageContainer>
+             <PageContainer>
+                 <div className="max-w-3xl mx-auto py-20 flex flex-col items-center justify-center text-center">
+                     <div className="w-24 h-24 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-8">
+                          <Check size={40} className="text-green-400" />
+                     </div>
+                     <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-6">
+                         Module <span className="text-green-400">Completed</span>
+                     </h2>
+                     <p className="text-white/40 mb-10 max-w-md mx-auto leading-relaxed">
+                         You have successfully mastered <b>{conceptModule?.title || topic}</b>. Your progress has been automatically synced to the roadmap.
+                     </p>
+
+                     <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md items-center justify-center">
+                         {nextInfo ? (
+                             <button
+                                 onClick={() => {
+                                      setIsConceptFinished(false);
+                                      hook.setActiveStep(1); 
+                                      router.push(`/learning/lesson?roadmap=${roadmapId}&topic=${topic}&concept=${nextInfo.conceptId}&phase=${nextInfo.phaseId}`);
+                                 }}
+                                 className="flex-1 w-full py-4 bg-saffron text-white rounded-2xl font-black uppercase text-xs tracking-widest flex justify-center items-center gap-2 hover:brightness-110 shadow-lg shadow-saffron/20"
+                             >
+                                 Continue <ArrowRight size={16} />
+                             </button>
+                         ) : (
+                             <button
+                                 onClick={() => router.push(`/learning/recommendation/${roadmapId}`)}
+                                 className="flex-1 w-full py-4 bg-green-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest flex justify-center items-center gap-2 hover:brightness-110 shadow-lg shadow-green-500/20"
+                             >
+                                 Complete Course <Check size={16} />
+                             </button>
+                         )}
+                         <button
+                             onClick={() => router.push(`/learning/roadmap/${roadmapId}`)}
+                             className="flex-1 w-full py-4 border border-white/20 text-white/60 hover:text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-colors"
+                         >
+                             Exit to Roadmap
+                         </button>
+                     </div>
+                 </div>
+             </PageContainer>
         );
     }
 
@@ -949,7 +1062,6 @@ function LearningLessonContent() {
 
                                 <button
                                     onClick={advanceStep}
-                                    disabled={currentStep === "integrity"}
                                     className="px-10 py-5 rounded-3xl font-black text-xs uppercase tracking-[0.4em] transition-all flex items-center gap-4 bg-saffron text-white shadow-2xl shadow-saffron/20 hover:scale-105 active:scale-95"
                                 >
                                     {currentStep === "concept" ? "INITIALIZE SANDBOX" :
